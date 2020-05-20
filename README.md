@@ -12,15 +12,15 @@ Installation guide
   `python manage.py makemigrations`
   `python manage.py migrate`
   `python manage.py runserver`
-
-API guide
-  To get user token:
+<br />
+API guide<br />
+  To get user token:<br />
     ```
     curl --location --request GET 'http://localhost:8000/api/login/' \
     --form 'username=admin' \
     --form 'password=admin'
     ```
-  To create new poll:
+  To create new poll:<br />
     ```
     curl --location --request POST 'http://localhost:8000/api/poll/create/' \
     --header 'Authorization: Token 74514e4ecccd9d86f40b501f125d5823ee8a43a4' \
