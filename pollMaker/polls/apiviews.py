@@ -1,7 +1,7 @@
 from rest_framework import status
 from django.shortcuts import get_object_or_404
-from .models import Question, Poll, Choice
-from .serializers import PollSerializer, QuestionSerializer, ChoiceSerializer
+from .models import Question, Poll, Choice, Answer
+from .serializers import PollSerializer, QuestionSerializer, ChoiceSerializer, AnswerSerializer
 
 from django.contrib.auth import authenticate
 from django.views.decorators.csrf import csrf_exempt
@@ -14,10 +14,11 @@ from rest_framework.status import (
     HTTP_200_OK
 )
 from rest_framework.response import Response
+from django.utils import timezone
 
 
 @csrf_exempt
-@api_view(["POST"])
+@api_view(["GET"])
 def login(request):
     username = request.data.get("username")
     password = request.data.get("password")
@@ -36,7 +37,7 @@ def login(request):
 @api_view(['POST'])
 @permission_classes((IsAuthenticated, IsAdminUser,))
 def poll_create(request):
-    serializer = PollSerializer(data=request.data)
+    serializer = PollSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         poll = serializer.save()
         return Response(PollSerializer(poll).data, status=status.HTTP_201_CREATED)
@@ -66,18 +67,9 @@ def polls_view(request):
     return Response(serializer.data)
 
 
-@api_view(['GET'])
-@permission_classes((IsAuthenticated,))
-def poll_view(request, poll_id):
-    poll = get_object_or_404(Poll, pk=poll_id)
-    serializer = PollSerializer(poll)
-    return Response(serializer.data)
-
-
 @api_view(['POST'])
 @permission_classes((IsAuthenticated, IsAdminUser,))
-def question_create(request, poll_id):
-    poll = get_object_or_404(Poll, pk=poll_id)
+def question_create(request):
     serializer = QuestionSerializer(data=request.data)
     if serializer.is_valid():
         question = serializer.save()
@@ -100,36 +92,19 @@ def question_update(request, question_id):
         return Response("Question deleted", status=status.HTTP_204_NO_CONTENT)
 
 
-@api_view(['GET'])
-@permission_classes((IsAuthenticated,))
-def questions_view(request, poll_id):
-    questions = Question.objects.filter(poll=poll_id)
-    serializer = QuestionSerializer(questions, many=True)
-    return Response(serializer.data)
-
-
-@api_view(['GET'])
-@permission_classes((IsAuthenticated,))
-def question_view(request, question_id):
-    question = get_object_or_404(Question, pk=question_id)
-    serializer = QuestionSerializer(question)
-    return Response(serializer.data)
-
-
 @api_view(['POST'])
 @permission_classes((IsAuthenticated, IsAdminUser,))
-def choices_create(request, question_id):
-    question = get_object_or_404(Question, pk=question_id)
+def choice_create(request):
     serializer = ChoiceSerializer(data=request.data)
     if serializer.is_valid():
-        choice = serializer.save(question=question)
+        choice = serializer.save()
         return Response(ChoiceSerializer(choice).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['PATCH', 'DELETE'])
 @permission_classes((IsAuthenticated, IsAdminUser,))
-def choices_update(request, choice_id):
+def choice_update(request, choice_id):
     choice = get_object_or_404(Choice, pk=choice_id)
     if request.method == 'PATCH':
         serializer = ChoiceSerializer(choice, data=request.data, partial=True)
@@ -144,15 +119,40 @@ def choices_update(request, choice_id):
 
 @api_view(['GET'])
 @permission_classes((IsAuthenticated,))
-def choices_view(request, question_id):
-    choices = Choice.objects.filter(question=question_id)
-    serializer = QuestionSerializer(choices, many=True)
+def active_polls_view(request):
+    polls = Poll.objects.filter(end_date__gte=timezone.now()).filter(pub_date__lte=timezone.now())
+    serializer = PollSerializer(polls, many=True)
     return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes((IsAuthenticated,))
+def answer_create(request):
+    serializer = AnswerSerializer(data=request.data, context={'request': request})
+    if serializer.is_valid():
+        answer = serializer.save()
+        return Response(AnswerSerializer(answer).data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
 @permission_classes((IsAuthenticated,))
-def choice_view(request, choice_id):
-    choice = get_object_or_404(Choice, pk=choice_id)
-    serializer = QuestionSerializer(choice)
+def answer_view(request, user_id):
+    answers = Answer.objects.filter(user_id=user_id)
+    serializer = AnswerSerializer(answers, many=True)
     return Response(serializer.data)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes((IsAuthenticated, IsAdminUser,))
+def answer_update(request, answer_id):
+    answer = get_object_or_404(Answer, pk=answer_id)
+    if request.method == 'PATCH':
+        serializer = AnswerSerializer(answer, data=request.data, partial=True)
+        if serializer.is_valid():
+            answer = serializer.save()
+            return Response(AnswerSerializer(answer).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    elif request.method == 'DELETE':
+        answer.delete()
+        return Response("Answer deleted", status=status.HTTP_204_NO_CONTENT)
