@@ -8,7 +8,9 @@
 
 ## Installation guide
   ```
-  pip install -r requirements
+  cd pollMaker/
+  pip install -r requirements.txt
+  cd pollMaker/
   python manage.py makemigrations
   python manage.py migrate
   python manage.py createsuperuser
